@@ -63,7 +63,14 @@ export const DatasetUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void
       onUploadSuccess();
     } catch (error: any) {
       console.error(error);
-      toast.error(error.response?.data?.detail || "Failed to upload dataset.");
+      const detail = error.response?.data?.detail;
+      let errorMessage = "Failed to upload dataset.";
+      if (typeof detail === 'string') {
+        errorMessage = detail;
+      } else if (Array.isArray(detail) && detail.length > 0 && detail[0].msg) {
+        errorMessage = detail[0].msg;
+      }
+      toast.error(errorMessage);
     } finally {
       setIsUploading(false);
     }
