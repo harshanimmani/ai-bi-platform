@@ -1,6 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, DateTime, Uuid
 from sqlalchemy.sql import func
 from app.core.database import Base
 
@@ -12,7 +11,7 @@ class User(Base):
 
     # Native PostgreSQL UUID primary key
     id = Column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
         index=True,

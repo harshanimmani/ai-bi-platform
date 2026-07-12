@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
 
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/ai_bi_db"
+    DATABASE_URL: str = "sqlite:///./test.db"
 
     # Auth (Clerk)
     CLERK_API_KEY: str = ""

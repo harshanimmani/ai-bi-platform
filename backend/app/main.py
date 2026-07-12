@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.models.base import Base # Ensures all models are loaded in memory
 from app.api.v1.router import api_router
 
 # Configure basic logging
@@ -20,6 +21,10 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Auto-create SQLite tables if missing
+from app.db.session import engine
+Base.metadata.create_all(bind=engine)
 
 # Set up CORS middleware to allow requests from local frontend and deployed Vercel apps
 # We will refine origins as we proceed with the UI configuration

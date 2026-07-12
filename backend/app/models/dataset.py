@@ -1,8 +1,8 @@
 import uuid
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, JSON, Uuid
 from sqlalchemy.sql import func
 from app.core.database import Base
+from app.models.user import User
 
 class Dataset(Base):
     """
@@ -12,7 +12,7 @@ class Dataset(Base):
     __tablename__ = "datasets"
 
     id = Column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         primary_key=True,
         default=uuid.uuid4,
         index=True,
@@ -21,7 +21,7 @@ class Dataset(Base):
     
     # Nullable until auth logic is added in Module 6
     user_id = Column(
-        UUID(as_uuid=True),
+        Uuid(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=True,
         index=True
