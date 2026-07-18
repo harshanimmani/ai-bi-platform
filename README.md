@@ -7,7 +7,9 @@ An AI-powered Business Intelligence platform that allows users to upload CSV/Exc
 ✅ Frontend completed
 ✅ Backend APIs developed
 ✅ Frontend and Backend connected
-🔄 Working on file upload functionality
+✅ Dataset upload and management completed
+✅ Interactive Dashboard completed
+✅ Chart Builder completed
 🔄 AI-generated business insights
 
 ## Features
