@@ -14,7 +14,7 @@ export const AppLayout = () => {
           <Outlet />
         </main>
       </div>
-      <Toaster position="top-right" richColors />
+      <Toaster position="top-right" richColors offset="80px" />
     </div>
   );
 };

@@ -15,8 +15,10 @@
     "date-fns": "^4.4.0",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.24.0",
+    "plotly.js-dist-min": "^3.7.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-plotly.js": "^4.0.0",
     "react-router-dom": "^7.18.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0"
@@ -24,8 +26,10 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^24.13.2",
+    "@types/plotly.js": "^3.0.10",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/react-plotly.js": "^2.6.4",
     "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.5.2",
     "oxlint": "^1.71.0",

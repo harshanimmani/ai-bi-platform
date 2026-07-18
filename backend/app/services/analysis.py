@@ -116,3 +116,139 @@ class AnalysisEngine:
             categorical_stats=categorical_stats,
             correlation_matrix=correlation_matrix
         )
+
+    @classmethod
+    def get_dataset_preview(
+        cls, 
+        storage_path: str, 
+        filename: str, 
+        page: int = 1, 
+        limit: int = 20, 
+        search: str = None
+    ) -> dict:
+        """
+        Retrieves a paginated preview of the dataset.
+        """
+        df = cls._load_dataframe(storage_path, filename)
+        
+        # Apply search if provided (search across all string columns)
+        if search:
+            str_cols = df.select_dtypes(include=['object', 'string']).columns
+            if len(str_cols) > 0:
+                mask = df[str_cols].apply(lambda x: x.astype(str).str.contains(search, case=False, na=False))
+                df = df[mask.any(axis=1)]
+                
+        total_rows = len(df)
+        
+        # Paginate
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        df_page = df.iloc[start_idx:end_idx]
+        
+        # Replace NaN with None for JSON serialization
+        df_page = df_page.replace({np.nan: None})
+        
+        return {
+            "columns": df.columns.tolist(),
+            "rows": df_page.to_dict(orient="records"),
+            "total_rows": total_rows,
+            "page": page,
+            "limit": limit
+        }
+
+    @classmethod
+    def query_chart_data(
+        cls, 
+        storage_path: str, 
+        filename: str, 
+        request: Any # ChartQueryRequest
+    ) -> dict:
+        """
+        Executes dynamic grouping and aggregation for chart generation.
+        """
+        df = cls._load_dataframe(storage_path, filename)
+        
+        x = request.x_axis
+        y = request.y_axis
+        agg = request.agg_func
+        
+        if x not in df.columns:
+            raise HTTPException(status_code=400, detail=f"Column {x} not found")
+            
+        labels = []
+        values = []
+        
+        # Drop completely empty rows for the selected columns
+        cols_to_drop = [x]
+        if y and y in df.columns:
+            cols_to_drop.append(y)
+            
+        df = df.dropna(subset=cols_to_drop)
+        
+        # Histogram or Box Plot (only needs X)
+        if request.chart_type in ["histogram", "box"]:
+            labels = df[x].tolist()
+            values = []
+            return {
+                "labels": labels,
+                "values": values,
+                "chart_type": request.chart_type,
+                "x_axis_label": x,
+                "y_axis_label": "Frequency" if request.chart_type == "histogram" else x
+            }
+            
+        # Scatter Plot (needs X and Y, no aggregation)
+        if request.chart_type == "scatter":
+            if not y or y not in df.columns:
+                raise HTTPException(status_code=400, detail="Scatter plot requires a valid Y-axis")
+            # For scatter, labels = x values, values = y values
+            labels = df[x].tolist()
+            values = df[y].tolist()
+            return {
+                "labels": labels,
+                "values": values,
+                "chart_type": request.chart_type,
+                "x_axis_label": x,
+                "y_axis_label": y
+            }
+            
+        # Bar, Line, Pie (Aggregated by X)
+        if request.chart_type in ["bar", "line", "pie"]:
+            if y and y in df.columns and agg:
+                # Group by X and aggregate Y
+                grouped = df.groupby(x)[y]
+                if agg == "sum":
+                    result = grouped.sum()
+                elif agg == "mean":
+                    result = grouped.mean()
+                elif agg == "count":
+                    result = grouped.count()
+                elif agg == "min":
+                    result = grouped.min()
+                elif agg == "max":
+                    result = grouped.max()
+                else:
+                    result = grouped.count()
+            else:
+                # If no Y or Agg provided, default to frequency count of X
+                result = df[x].value_counts()
+                y = "Count"
+                
+            # Limit to top 100 categories to avoid massive payloads
+            result = result.head(100)
+            
+            labels = result.index.astype(str).tolist()
+            values = result.values.tolist()
+            
+            # Clean values for JSON
+            values = [cls._clean_float(v) if pd.notna(v) else None for v in values]
+            
+            return {
+                "labels": labels,
+                "values": values,
+                "chart_type": request.chart_type,
+                "x_axis_label": x,
+                "y_axis_label": y if y else "Value"
+            }
+            
+        raise HTTPException(status_code=400, detail="Unsupported chart type or query configuration")

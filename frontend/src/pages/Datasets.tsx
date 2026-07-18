@@ -48,7 +48,7 @@ export const DatasetsPage = () => {
         </p>
       </div>
 
-      <DatasetUpload onUploadSuccess={fetchDatasets} />
+      <DatasetUpload onUploadSuccess={fetchDatasets} existingDatasets={datasets} />
       
       <DatasetList 
         datasets={datasets} 

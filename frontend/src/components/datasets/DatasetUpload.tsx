@@ -2,8 +2,9 @@ import { useState, useRef } from 'react';
 import { UploadCloud, FileType, X } from 'lucide-react';
 import { datasetsApi } from '../../api/datasets';
 import { toast } from 'sonner';
+import type { Dataset } from '../../api/datasets';
 
-export const DatasetUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void }) => {
+export const DatasetUpload = ({ onUploadSuccess, existingDatasets = [] }: { onUploadSuccess: () => void, existingDatasets?: Dataset[] }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -44,7 +45,17 @@ export const DatasetUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || isUploading) return;
+
+    // Check for duplicates
+    const isDuplicate = existingDatasets.some(
+      (d) => d.filename === file.name && d.file_size === file.size
+    );
+
+    if (isDuplicate) {
+      toast.error('A dataset with the same name and size already exists.');
+      return;
+    }
 
     try {
       setIsUploading(true);
