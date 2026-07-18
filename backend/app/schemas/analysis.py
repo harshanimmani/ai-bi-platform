@@ -40,9 +40,12 @@ class DatasetPreviewResponse(BaseModel):
 class ChartQueryRequest(BaseModel):
     x_axis: str
     y_axis: Optional[str] = None
-    chart_type: str  # "bar", "line", "pie", "histogram", "box", "scatter"
+    chart_type: str  # "bar", "line", "pie", "histogram", "box", "scatter", "area"
     agg_func: Optional[str] = None  # "sum", "mean", "count", "min", "max"
     group_by: Optional[str] = None
+    filters: Optional[Dict[str, Any]] = None
+    sort_order: Optional[str] = None # "asc", "desc"
+    limit: Optional[int] = None # Top N
 
 class ChartQueryResponse(BaseModel):
     labels: list[Any]

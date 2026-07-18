@@ -4,14 +4,18 @@ import { getDatasetSummary, type AnalysisResponse } from '../api/analysis';
 import { KPICards } from '../components/dashboard/KPICards';
 import { ChartBuilder } from '../components/dashboard/ChartBuilder';
 import { DatasetPreview } from '../components/dashboard/DatasetPreview';
+import { DashboardFilters } from '../components/dashboard/DashboardFilters';
 import { BarChart3, Database } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const DashboardPage = () => {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
+  const [baseSummary, setBaseSummary] = useState<AnalysisResponse | null>(null);
   const [summary, setSummary] = useState<AnalysisResponse | null>(null);
+  const [filters, setFilters] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   // Fetch all datasets on mount
   useEffect(() => {
@@ -32,30 +36,56 @@ export const DashboardPage = () => {
     fetchAll();
   }, []);
 
-  // Fetch summary when selected dataset changes
+  // Fetch base summary when selected dataset changes
+  useEffect(() => {
+    if (!selectedId) {
+      setBaseSummary(null);
+      setFilters({});
+      return;
+    }
+    
+    let isMounted = true;
+    const fetchBaseSummary = async () => {
+      try {
+        const data = await getDatasetSummary(selectedId);
+        if (isMounted) {
+          setBaseSummary(data);
+          setFilters({}); // Reset filters on new dataset
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error('Failed to load base dataset summary.');
+      }
+    };
+    
+    fetchBaseSummary();
+    return () => { isMounted = false; };
+  }, [selectedId]);
+
+  // Fetch filtered summary whenever filters or selectedId changes
   useEffect(() => {
     if (!selectedId) {
       setSummary(null);
       return;
     }
     
-    // Clear summary to show loading state while fetching new dataset (Bug 3 & UI Polish)
-    setSummary(null);
-    
     let isMounted = true;
-    const fetchSummary = async () => {
+    setSummaryLoading(true);
+    const fetchFilteredSummary = async () => {
       try {
-        const data = await getDatasetSummary(selectedId);
+        const data = await getDatasetSummary(selectedId, filters);
         if (isMounted) setSummary(data);
       } catch (error) {
         console.error(error);
-        toast.error('Failed to load dataset summary for analysis.');
+        toast.error('Failed to load filtered dataset summary.');
+      } finally {
+        if (isMounted) setSummaryLoading(false);
       }
     };
     
-    fetchSummary();
+    fetchFilteredSummary();
     return () => { isMounted = false; };
-  }, [selectedId]);
+  }, [selectedId, filters]);
 
   if (loading) {
     return (
@@ -115,11 +145,19 @@ export const DashboardPage = () => {
         </div>
       </div>
 
+      {baseSummary && (
+        <DashboardFilters 
+          baseSummary={baseSummary} 
+          filters={filters} 
+          setFilters={setFilters} 
+        />
+      )}
+
       {summary && selectedDataset ? (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out space-y-8">
+        <div className={`animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out space-y-8 ${summaryLoading ? 'opacity-50' : 'opacity-100'} transition-opacity`}>
           <KPICards summary={summary} fileSize={selectedDataset.file_size} />
-          <ChartBuilder datasetId={selectedId} summary={summary} />
-          <DatasetPreview datasetId={selectedId} />
+          <ChartBuilder datasetId={selectedId} summary={summary} filters={filters} />
+          <DatasetPreview datasetId={selectedId} filters={filters} />
         </div>
       ) : (
         <div className="flex h-64 items-center justify-center">

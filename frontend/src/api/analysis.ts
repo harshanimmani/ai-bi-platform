@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, API_URL } from './client';
 
 export interface MissingValuesSummary {
   count: number;
@@ -47,6 +47,9 @@ export interface ChartQueryRequest {
   chart_type: string;
   agg_func?: string;
   group_by?: string;
+  filters?: Record<string, any>;
+  sort_order?: string;
+  limit?: number;
 }
 
 export interface ChartQueryResponse {
@@ -57,8 +60,12 @@ export interface ChartQueryResponse {
   y_axis_label: string;
 }
 
-export const getDatasetSummary = async (datasetId: string): Promise<AnalysisResponse> => {
-  const response = await apiClient.get<AnalysisResponse>(`/analysis/${datasetId}/summary`);
+export const getDatasetSummary = async (datasetId: string, filters?: Record<string, any>): Promise<AnalysisResponse> => {
+  let url = `/analysis/${datasetId}/summary`;
+  if (filters && Object.keys(filters).length > 0) {
+    url += `?filters=${encodeURIComponent(JSON.stringify(filters))}`;
+  }
+  const response = await apiClient.get<AnalysisResponse>(url);
   return response.data;
 };
 
@@ -66,13 +73,17 @@ export const getDatasetPreview = async (
   datasetId: string,
   page: number = 1,
   limit: number = 20,
-  search?: string
+  search?: string,
+  filters?: Record<string, any>
 ): Promise<DatasetPreviewResponse> => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
   });
   if (search) params.append('search', search);
+  if (filters && Object.keys(filters).length > 0) {
+    params.append('filters', JSON.stringify(filters));
+  }
 
   const response = await apiClient.get<DatasetPreviewResponse>(`/analysis/${datasetId}/preview?${params.toString()}`);
   return response.data;
@@ -84,4 +95,12 @@ export const queryChartData = async (
 ): Promise<ChartQueryResponse> => {
   const response = await apiClient.post<ChartQueryResponse>(`/analysis/${datasetId}/query`, request);
   return response.data;
+};
+
+export const downloadFilteredDataset = (datasetId: string, filters?: Record<string, any>) => {
+  let url = `${API_URL}/analysis/${datasetId}/download`;
+  if (filters && Object.keys(filters).length > 0) {
+    url += `?filters=${encodeURIComponent(JSON.stringify(filters))}`;
+  }
+  window.open(url, '_blank');
 };

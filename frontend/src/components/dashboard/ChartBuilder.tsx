@@ -6,9 +6,10 @@ import { toast } from 'sonner';
 interface ChartBuilderProps {
   datasetId: string;
   summary: AnalysisResponse;
+  filters?: Record<string, any>;
 }
 
-export const ChartBuilder = ({ datasetId, summary }: ChartBuilderProps) => {
+export const ChartBuilder = ({ datasetId, summary, filters = {} }: ChartBuilderProps) => {
   const allColumns = Object.keys(summary.data_types);
   const numericColumns = Object.keys(summary.numerical_stats);
   const categoricalColumns = Object.keys(summary.categorical_stats);
@@ -66,7 +67,9 @@ export const ChartBuilder = ({ datasetId, summary }: ChartBuilderProps) => {
       x_axis: getDefaultX(),
       y_axis: getDefaultY(),
       chart_type: 'bar',
-      agg_func: 'sum'
+      agg_func: 'sum',
+      sort_order: 'desc',
+      limit: 10
     });
     setChartData(null);
   }, [datasetId, summary]);
@@ -78,11 +81,24 @@ export const ChartBuilder = ({ datasetId, summary }: ChartBuilderProps) => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await queryChartData(datasetId, request);
+        const payload = { ...request };
+        if (Object.keys(filters).length > 0) {
+          payload.filters = filters;
+        }
+        
+        // Intelligent validation
+        if (payload.chart_type === 'scatter' && !payload.y_axis) {
+          setLoading(false);
+          setChartData(null);
+          return;
+        }
+        
+        const response = await queryChartData(datasetId, payload);
         if (isMounted) setChartData(response);
       } catch (error) {
         console.error(error);
         toast.error('Failed to generate chart data.');
+        if (isMounted) setChartData(null);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -90,9 +106,9 @@ export const ChartBuilder = ({ datasetId, summary }: ChartBuilderProps) => {
     
     fetchData();
     return () => { isMounted = false; };
-  }, [datasetId, request]);
+  }, [datasetId, request, filters]);
 
-  const handleChange = (field: keyof ChartQueryRequest, value: string) => {
+  const handleChange = (field: keyof ChartQueryRequest, value: any) => {
     setRequest(prev => ({ ...prev, [field]: value }));
   };
 
@@ -136,6 +152,16 @@ export const ChartBuilder = ({ datasetId, summary }: ChartBuilderProps) => {
         marker: { size: 8 }
       }];
     }
+    
+    if (chart_type === 'area') {
+      return [{
+        x: labels,
+        y: values,
+        type: 'scatter',
+        fill: 'tozeroy',
+        mode: 'lines',
+      }];
+    }
 
     return [{
       x: labels,
@@ -171,6 +197,7 @@ export const ChartBuilder = ({ datasetId, summary }: ChartBuilderProps) => {
             <option value="bar">Bar Chart</option>
             <option value="line">Line Chart</option>
             <option value="pie">Donut Chart</option>
+            <option value="area">Area Chart</option>
             <option value="scatter">Scatter Plot</option>
             <option value="histogram">Histogram</option>
             <option value="box">Box Plot</option>
@@ -202,7 +229,7 @@ export const ChartBuilder = ({ datasetId, summary }: ChartBuilderProps) => {
           </div>
         )}
 
-        {['bar', 'line', 'pie'].includes(request.chart_type) && request.y_axis && (
+        {['bar', 'line', 'pie', 'area'].includes(request.chart_type) && request.y_axis && (
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Aggregation</label>
             <select 
@@ -217,6 +244,36 @@ export const ChartBuilder = ({ datasetId, summary }: ChartBuilderProps) => {
               <option value="max">Maximum</option>
             </select>
           </div>
+        )}
+
+        {['bar', 'line', 'pie', 'area'].includes(request.chart_type) && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Sort Order</label>
+              <select 
+                value={request.sort_order || 'desc'}
+                onChange={(e) => handleChange('sort_order', e.target.value)}
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer hover:border-slate-300 appearance-none"
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Limit Results</label>
+              <select 
+                value={request.limit || 10}
+                onChange={(e) => handleChange('limit', parseInt(e.target.value))}
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all cursor-pointer hover:border-slate-300 appearance-none"
+              >
+                <option value="5">Top 5</option>
+                <option value="10">Top 10</option>
+                <option value="20">Top 20</option>
+                <option value="50">Top 50</option>
+                <option value="100">Top 100</option>
+              </select>
+            </div>
+          </>
         )}
       </div>
 
@@ -235,6 +292,8 @@ export const ChartBuilder = ({ datasetId, summary }: ChartBuilderProps) => {
               paper_bgcolor: 'transparent',
               plot_bgcolor: 'transparent',
               font: { color: '#64748b' }, // slate-500
+              hovermode: 'closest',
+              showlegend: request.chart_type === 'pie',
               xaxis: { 
                 title: chartData.x_axis_label, 
                 gridcolor: '#334155',
@@ -249,7 +308,7 @@ export const ChartBuilder = ({ datasetId, summary }: ChartBuilderProps) => {
             }}
             useResizeHandler={true}
             style={{ width: '100%', height: '100%' }}
-            config={{ responsive: true, displayModeBar: false }}
+            config={{ responsive: true, displayModeBar: true, displaylogo: false }}
           />
         ) : null}
       </div>

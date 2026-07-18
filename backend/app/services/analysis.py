@@ -41,12 +41,29 @@ class AnalysisEngine:
             return None
         return float(value)
 
+    @staticmethod
+    def _apply_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
+        """Applies dynamic filters to the dataframe."""
+        if not filters:
+            return df
+        
+        for col, val in filters.items():
+            if col in df.columns:
+                # If val is a list, use isin, else use ==
+                if isinstance(val, list):
+                    df = df[df[col].isin(val)]
+                else:
+                    df = df[df[col] == val]
+        return df
+
     @classmethod
-    def analyze_dataset(cls, dataset_id: str, storage_path: str, filename: str) -> AnalysisResponse:
+    def analyze_dataset(cls, dataset_id: str, storage_path: str, filename: str, filters: dict = None) -> AnalysisResponse:
         """
         Runs comprehensive analysis on the dataset.
         """
         df = cls._load_dataframe(storage_path, filename)
+        if filters:
+            df = cls._apply_filters(df, filters)
         
         row_count = len(df)
         col_count = len(df.columns)
@@ -124,12 +141,15 @@ class AnalysisEngine:
         filename: str, 
         page: int = 1, 
         limit: int = 20, 
-        search: str = None
+        search: str = None,
+        filters: dict = None
     ) -> dict:
         """
         Retrieves a paginated preview of the dataset.
         """
         df = cls._load_dataframe(storage_path, filename)
+        if filters:
+            df = cls._apply_filters(df, filters)
         
         # Apply search if provided (search across all string columns)
         if search:
@@ -168,6 +188,9 @@ class AnalysisEngine:
         """
         df = cls._load_dataframe(storage_path, filename)
         
+        if request.filters:
+            df = cls._apply_filters(df, request.filters)
+            
         x = request.x_axis
         y = request.y_axis
         agg = request.agg_func
@@ -212,8 +235,8 @@ class AnalysisEngine:
                 "y_axis_label": y
             }
             
-        # Bar, Line, Pie (Aggregated by X)
-        if request.chart_type in ["bar", "line", "pie"]:
+        # Bar, Line, Pie, Area (Aggregated by X)
+        if request.chart_type in ["bar", "line", "pie", "area"]:
             if y and y in df.columns and agg:
                 # Group by X and aggregate Y
                 grouped = df.groupby(x)[y]
@@ -234,11 +257,22 @@ class AnalysisEngine:
                 result = df[x].value_counts()
                 y = "Count"
                 
-            # Limit to top 100 categories to avoid massive payloads
-            result = result.head(100)
+            # Convert to DataFrame to allow easy sorting and limiting
+            result_df = result.reset_index()
+            result_df.columns = [x, 'value']
             
-            labels = result.index.astype(str).tolist()
-            values = result.values.tolist()
+            # Apply Sorting
+            if request.sort_order == "asc":
+                result_df = result_df.sort_values(by='value', ascending=True)
+            elif request.sort_order == "desc":
+                result_df = result_df.sort_values(by='value', ascending=False)
+                
+            # Apply Limit (Top N)
+            limit_n = request.limit if request.limit and request.limit > 0 else 100
+            result_df = result_df.head(limit_n)
+            
+            labels = result_df[x].astype(str).tolist()
+            values = result_df['value'].tolist()
             
             # Clean values for JSON
             values = [cls._clean_float(v) if pd.notna(v) else None for v in values]

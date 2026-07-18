@@ -5,9 +5,10 @@ import { toast } from 'sonner';
 
 interface DatasetPreviewProps {
   datasetId: string;
+  filters?: Record<string, any>;
 }
 
-export const DatasetPreview = ({ datasetId }: DatasetPreviewProps) => {
+export const DatasetPreview = ({ datasetId, filters = {} }: DatasetPreviewProps) => {
   const [data, setData] = useState<DatasetPreviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -23,9 +24,14 @@ export const DatasetPreview = ({ datasetId }: DatasetPreviewProps) => {
     return () => clearTimeout(handler);
   }, [search]);
 
-  // Sync state when dataset changes (Bug 3)
+  // Sync state when dataset changes (Bug 3) or filters change
   useEffect(() => {
     setPage(1);
+    // Don't reset search if only filters change
+  }, [datasetId, filters]);
+
+  // Full reset when dataset changes
+  useEffect(() => {
     setSearch('');
     setDebouncedSearch('');
     setData(null);
@@ -36,7 +42,7 @@ export const DatasetPreview = ({ datasetId }: DatasetPreviewProps) => {
     const fetchPreview = async () => {
       setLoading(true);
       try {
-        const response = await getDatasetPreview(datasetId, page, 20, debouncedSearch);
+        const response = await getDatasetPreview(datasetId, page, 20, debouncedSearch, filters);
         if (isMounted) setData(response);
       } catch (error) {
         console.error(error);
@@ -47,7 +53,7 @@ export const DatasetPreview = ({ datasetId }: DatasetPreviewProps) => {
     };
     fetchPreview();
     return () => { isMounted = false; };
-  }, [datasetId, page, debouncedSearch]);
+  }, [datasetId, page, debouncedSearch, filters]);
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col h-[600px] xl:h-[700px] transition-shadow hover:shadow-md">
